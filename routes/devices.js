@@ -44,7 +44,9 @@ router.get("/:id", authenticateToken, async (req, res) => {
       `
       SELECT id, recorded_at, temperature, humidity
       FROM devices_readings
-      WHERE device_id = $1 AND recorded_at >= CURRENT_DATE
+      WHERE device_id = $1 
+        AND recorded_at >= CURRENT_DATE
+        AND (temperature IS NOT NULL or humidity IS NOT NULL)
       ORDER BY recorded_at DESC
       `,
       [device.device_id]
