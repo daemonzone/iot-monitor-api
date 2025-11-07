@@ -23,7 +23,7 @@ router.post("/login", async (req, res) => {
   const match = await bcrypt.compare(password, user.password);
   if (!match) return res.status(403).json({ message: "Invalid password" });
 
-  const accessToken = jwt.sign(
+  const token = jwt.sign(
     { id: user.id, username: user.username },
     process.env.JWT_SECRET,
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
@@ -36,7 +36,7 @@ router.post("/login", async (req, res) => {
   );
 
   refreshTokens.push(refreshToken);
-  res.json({ accessToken, refreshToken });
+  res.json({ token, refreshToken });
 });
 
 // Refresh token endpoint
@@ -47,12 +47,12 @@ router.post("/token", (req, res) => {
 
   jwt.verify(token, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
     if (err) return res.sendStatus(403);
-    const accessToken = jwt.sign(
+    const token = jwt.sign(
       { id: user.id, username: user.username },
       process.env.JWT_SECRET,
       { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
     );
-    res.json({ accessToken });
+    res.json({ token });
   });
 });
 

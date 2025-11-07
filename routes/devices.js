@@ -19,14 +19,34 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
-    const results = await pool.query("SELECT * FROM devices WHERE device_id = $1", [id]);
+    const results = await pool.query(
+      `SELECT 
+          id,
+          device_id,
+          model,
+          ip_addr,
+          uptime,
+          status,
+          last_status_update,
+          first_registration_timestamp,
+          deleted,
+          location
+       FROM devices
+       WHERE device_id = $1`,
+      [id]
+    );
     if (results.rows.length === 0) return res.status(404).json({ message: "Device not found" });
 
     const device = results.rows[0];
-    console.log("DeviceID:", device.device_id);
 
+    // Fetch all readings for today for a given device
     const readings = await pool.query(
-      "SELECT * FROM devices_readings WHERE device_id = $1 ORDER BY recorded_at DESC LIMIT 10",
+      `
+      SELECT id, recorded_at, temperature, humidity
+      FROM devices_readings
+      WHERE device_id = $1 AND recorded_at >= CURRENT_DATE
+      ORDER BY recorded_at DESC
+      `,
       [device.device_id]
     );
 
