@@ -96,17 +96,35 @@ router.get("/:id/readings", authenticateToken, async (req, res) => {
     // Fetch all readings for today for a given device
     const readings = await pool.query(
       `
-      SELECT
-          time_bucket($2::interval, recorded_at) AS time,
-          ROUND(AVG(temperature)::numeric, 1) AS temperature,
-          ROUND(AVG(humidity)::numeric, 1) AS humidity
-      FROM devices_readings
-      WHERE device_id = $1
-        AND recorded_at >= $3::timestamptz
-        AND recorded_at <= $4::timestamptz
-        AND (temperature IS NOT NULL OR humidity IS NOT NULL)
-      GROUP BY time
-      ORDER BY time DESC;
+WITH bucketed AS (
+  SELECT
+    time_bucket($2::interval, recorded_at) AS bucket,
+    sensors_data
+  FROM devices_readings
+  WHERE device_id = $1
+    AND recorded_at >= $3::timestamptz
+    AND recorded_at <= $4::timestamptz
+)
+SELECT
+  bucket,
+  jsonb_agg(
+    jsonb_build_object(
+      'code', s.code,
+      'name', s.name,
+      'unit', s.unit,
+      'value_type', s.value_type,
+      'value', CASE s.value_type
+          WHEN 'numeric' THEN to_jsonb(r.value::numeric)
+          WHEN 'boolean' THEN to_jsonb(r.value::boolean)
+          ELSE to_jsonb(r.value)
+      END
+    ) ORDER BY s.code
+  ) AS sensors
+FROM bucketed b
+JOIN LATERAL jsonb_each_text(b.sensors_data) AS r(key, value) ON TRUE
+JOIN sensors s ON s.code = r.key
+GROUP BY bucket
+ORDER BY bucket DESC;
       `,
       [id, timebucket, start_date, end_date]
     );
