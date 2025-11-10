@@ -14,7 +14,7 @@ router.get("/", authenticateToken, async (req, res) => {
     const devices = [];
 
     for (const device of results.rows) {
-      device.image = ''; // for debug purpose
+      // device.image = ''; // for debug purpose
       device.last_reading = getDeviceLastReading(device);      
       devices.push(device); // <-- important!
     }
