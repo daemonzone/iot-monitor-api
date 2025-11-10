@@ -28,12 +28,12 @@ router.get("/", authenticateToken, async (req, res) => {
     const devices = [];
 
     for (const device of results.rows) {
-      device.readings = [{
+      device.last_reading = {
         id: parseInt(device.reading_id),
         recorded_at: device.recorded_at.toISOString(),
         temperature: parseFloat(device.temperature),
         humidity: parseFloat(device.humidity)
-      }];
+      };
       
       devices.push(device); // <-- important!
     }
@@ -45,7 +45,7 @@ router.get("/", authenticateToken, async (req, res) => {
   }
 });
 
-// Single device + last 10 readings
+// Single device
 router.get("/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
@@ -70,24 +70,40 @@ router.get("/:id", authenticateToken, async (req, res) => {
 
     const device = results.rows[0];
 
-    // Fetch all readings for today for a given device
-    const readings = await pool.query(
-      `
-      SELECT id, recorded_at, temperature, humidity
-      FROM devices_readings
-      WHERE device_id = $1 
-        AND recorded_at >= CURRENT_DATE
-        AND (temperature IS NOT NULL or humidity IS NOT NULL)
-      ORDER BY recorded_at DESC
-      `,
-      [device.device_id]
-    );
-
-    res.json({ device: device, readings: readings.rows });
+    res.json({ device: device });
   } catch (err) {
     console.error(err);
     res.status(404).json({ error: "Not found" });
   }
 });
+
+// Single device readings
+router.get("/:id/readings", authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Fetch all readings for today for a given device
+    const readings = await pool.query(
+      `
+      SELECT
+          time_bucket('5 minutes', recorded_at) AS time,
+          ROUND(AVG(temperature)::numeric, 1) AS temperature,
+          ROUND(AVG(humidity)::numeric, 1) AS humidity
+          FROM devices_readings
+      WHERE device_id = $1
+        AND recorded_at >= CURRENT_TIMESTAMP - INTERVAL '2 days'
+        AND (temperature IS NOT NULL OR humidity IS NOT NULL)
+      GROUP BY time
+      ORDER BY time DESC;
+      `,
+      [id]
+    );
+
+    res.json({ readings: readings.rows });
+  } catch (err) {
+    console.error(err);
+    res.status(404).json({ error: "Not found" });
+  }
+});
+
 
 export default router;
