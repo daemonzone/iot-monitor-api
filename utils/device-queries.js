@@ -48,7 +48,7 @@ SELECT
         ) ORDER BY s.id
     ) AS sensors
 FROM devices d
-CROSS JOIN sensors s
+JOIN sensors s ON s.code = ANY (SELECT jsonb_array_elements_text(d.sensors))
 WHERE d.device_id = $1
 GROUP BY d.device_id, d.model, d.ip_addr
 LIMIT 1
@@ -59,6 +59,7 @@ SELECT
   time_bucket($3::interval, dr.recorded_at) AS time,
   ROUND(AVG(r.value::numeric), 1) AS value
 FROM devices_readings dr
+JOIN devices d ON d.device_id = dr.device_id
 JOIN LATERAL jsonb_each_text(dr.sensors_data) AS r(key, value) ON TRUE
 JOIN sensors s ON s.code = r.key
 WHERE dr.device_id = $1
