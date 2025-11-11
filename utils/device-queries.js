@@ -30,67 +30,42 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) r ON TRUE
 WHERE d.device_id = $1
+LIMIT 1
 `;
 
-export const getDeviceReadingsBucketed = `
-WITH bucketed AS (
-  SELECT
-    time_bucket($2::interval, recorded_at) AS bucket,
-    id AS reading_id,
-    recorded_at,
-    sensors_data
-  FROM devices_readings
-  WHERE device_id = $1
-    AND recorded_at >= $3::timestamptz
-    AND recorded_at <= $4::timestamptz
-),
-sensor_values AS (
-  SELECT
-    b.bucket,
-    s.code,
-    s.name,
-    s.unit,
-    s.value_type,
-    jsonb_build_object(
-      'id', b.reading_id,
-      'time', b.recorded_at,
-      'value',
-      CASE s.value_type
-        WHEN 'numeric' THEN to_jsonb(r.value::numeric)
-        WHEN 'boolean' THEN to_jsonb(r.value::boolean)
-        ELSE to_jsonb(r.value)
-      END
-    ) AS reading
-  FROM bucketed b
-  JOIN LATERAL jsonb_each_text(b.sensors_data) AS r(key, value) ON TRUE
-  JOIN sensors s ON s.code = r.key
-)
+export const getDeviceByIdWithSensors = `
+SELECT 
+    d.device_id,
+    d.model,
+    d.ip_addr,
+    jsonb_agg(
+        jsonb_build_object(
+            'id', s.id,
+            'code', s.code,
+            'name', s.name,
+            'unit', s.unit,
+            'value_type', s.value_type
+        ) ORDER BY s.id
+    ) AS sensors
+FROM devices d
+CROSS JOIN sensors s
+WHERE d.device_id = $1
+GROUP BY d.device_id, d.model, d.ip_addr
+LIMIT 1
+`;
+
+export const getBucketedDeviceReadings = `
 SELECT
-  bucket,
-  jsonb_agg(
-    jsonb_build_object(
-      'sensor',
-      jsonb_build_object(
-        'code', code,
-        'name', name,
-        'unit', unit,
-        'value_type', value_type
-      ),
-      'values',
-      readings
-    )
-  ) AS sensors
-FROM (
-  SELECT
-    bucket,
-    code,
-    name,
-    unit,
-    value_type,
-    jsonb_agg(reading ORDER BY reading->>'time') AS readings
-  FROM sensor_values
-  GROUP BY bucket, code, name, unit, value_type
-) t
-GROUP BY bucket
-ORDER BY bucket DESC
+  time_bucket($3::interval, dr.recorded_at) AS time,
+  ROUND(AVG(r.value::numeric), 1) AS value
+FROM devices_readings dr
+JOIN LATERAL jsonb_each_text(dr.sensors_data) AS r(key, value) ON TRUE
+JOIN sensors s ON s.code = r.key
+WHERE dr.device_id = $1
+  AND s.code = $2
+  AND s.value_type = 'numeric'
+  AND dr.recorded_at >= $4::timestamptz
+  AND dr.recorded_at <= $5::timestamptz
+GROUP BY time
+ORDER BY time ASC
 `;
