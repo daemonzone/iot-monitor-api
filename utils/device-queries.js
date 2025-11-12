@@ -48,7 +48,7 @@ SELECT
         ) ORDER BY s.id
     ) AS sensors
 FROM devices d
-JOIN sensors s ON s.code = ANY (SELECT jsonb_array_elements_text(d.sensors))
+LEFT JOIN sensors s ON s.code = ANY (SELECT jsonb_array_elements_text(d.sensors))
 WHERE d.device_id = $1
 GROUP BY d.device_id, d.model, d.ip_addr
 LIMIT 1
