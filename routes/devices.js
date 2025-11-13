@@ -51,7 +51,6 @@ router.get("/:id/readings", authenticateToken, async (req, res) => {
   const start_date = req.query.start_date || new Date().toISOString().split("T")[0]; // default: today
   const end_date = req.query.end_data || new Date().toISOString();                     // default: now
   const device = (await pool.query(getDeviceByIdWithSensors, [id])).rows[0];
-  console.log("Device:", device);
   if (!device) return res.status(404).json({ message: "Device not found" });
   
   const readings = [];

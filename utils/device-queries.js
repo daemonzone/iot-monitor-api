@@ -12,7 +12,7 @@ LEFT JOIN LATERAL (
     ORDER BY recorded_at DESC
     LIMIT 1
 ) r ON TRUE
-ORDER by d.id
+ORDER by d.model
 `;
 
 export const getDeviceById = `
