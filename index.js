@@ -21,6 +21,7 @@ app.use("/auth", authRoutes);
 app.use("/dashboard", dashboardRoutes);
 app.use("/devices", devicesRoutes);
 app.use("/sensors", sensorsRoutes);
+app.use("/sensors/offsets", sensorsRoutes);
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);
