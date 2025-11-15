@@ -1,5 +1,5 @@
 import express from "express";
-import { pool } from "../db.js";
+import { query } from "../middleware/db.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { getSensors, getSensorsOffsets } from "../utils/sensor-queries.js";
 
@@ -8,7 +8,7 @@ const router = express.Router();
 // List all sensors
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    const results = await pool.query(getSensors);
+    const results = await query(getSensors);
 
     const sensors = [];
 
@@ -26,8 +26,7 @@ router.get("/", authenticateToken, async (req, res) => {
 // List all sensors offsets
 router.get("/offsets", authenticateToken, async (req, res) => {
   try {
-    const results = await pool.query(getSensorsOffsets);
-    console.log(results);
+    const results = await query(getSensorsOffsets);
     const sensors_offsets = {};
 
     for (const row of results.rows) {
@@ -40,7 +39,6 @@ router.get("/offsets", authenticateToken, async (req, res) => {
       sensors_offsets[device_id][code] = offset;
     }
 
-    console.log("sensors_offsets", sensors_offsets);
     res.json(sensors_offsets);
   } catch (err) {
     console.error(err);

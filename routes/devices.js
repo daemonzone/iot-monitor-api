@@ -1,5 +1,5 @@
 import express from "express";
-import { pool } from "../db.js";
+import { query } from "../middleware/db.js";
 import { authenticateToken } from "../middleware/auth.js";
 import { getDeviceLastReading } from "../utils/device-readings.js";
 import { getDevices, getDeviceById, getDeviceByIdWithSensors, getBucketedDeviceReadings } from '../utils/device-queries.js';
@@ -9,7 +9,7 @@ const router = express.Router();
 // List all devices
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    const results = await pool.query(getDevices);
+    const results = await query(getDevices);
 
     const devices = [];
 
@@ -30,7 +30,7 @@ router.get("/", authenticateToken, async (req, res) => {
 router.get("/:id", authenticateToken, async (req, res) => {
   const { id } = req.params;
   try {
-    const results = await pool.query(getDeviceById, [id]);
+    const results = await query(getDeviceById, [id]);
 
     if (results.rows.length === 0) return res.status(404).json({ message: "Device not found" });
 
@@ -50,7 +50,7 @@ router.get("/:id/readings", authenticateToken, async (req, res) => {
   const timebucket = req.query.timebucket || "15 minutes";
   const start_date = req.query.start_date || new Date().toISOString().split("T")[0]; // default: today
   const end_date = req.query.end_data || new Date().toISOString();                     // default: now
-  const device = (await pool.query(getDeviceByIdWithSensors, [id])).rows[0];
+  const device = (await query(getDeviceByIdWithSensors, [id])).rows[0];
   if (!device) return res.status(404).json({ message: "Device not found" });
   
   const readings = [];
@@ -59,7 +59,7 @@ router.get("/:id/readings", authenticateToken, async (req, res) => {
       if (!sensor.id) continue;
 
       if (sensor.value_type == 'numeric') {
-        const results = await pool.query(getBucketedDeviceReadings, [id, sensor.code, timebucket, start_date, end_date]);
+        const results = await query(getBucketedDeviceReadings, [id, sensor.code, timebucket, start_date, end_date]);
         const sensor_readings = {
           sensor,
           buckets: results.rows

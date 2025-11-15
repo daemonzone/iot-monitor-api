@@ -1,5 +1,5 @@
 import express from "express";
-import { pool } from "../db.js";
+import { query } from "../middleware/db.js";
 import { authenticateToken } from "../middleware/auth.js";
 
 const router = express.Router();
@@ -9,7 +9,7 @@ router.get("/", authenticateToken, async (req, res) => {
   try {
     
     // Fetch all raw readings from last day
-    const readingsResult = await pool.query(`
+    const readingsResult = await query(`
       SELECT device_id, recorded_at, temperature
       FROM devices_readings
       WHERE recorded_at > NOW() - INTERVAL '1 day'
@@ -27,7 +27,7 @@ router.get("/", authenticateToken, async (req, res) => {
     });
 
     // Fetch aggregated data (1h time buckets)
-    const aggregatesResult = await pool.query(`
+    const aggregatesResult = await query(`
       SELECT 
         device_id,
         time_bucket('1 hour', recorded_at) AS bucket,
