@@ -1,6 +1,7 @@
 import express from "express";
 import { query } from "../middleware/db.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { getDashboardData } from "../utils/dashboard-queries.js";
 
 const router = express.Router();
 
@@ -8,62 +9,39 @@ const router = express.Router();
 router.get("/", authenticateToken, async (req, res) => {
   try {
     
-    // Fetch all raw readings from last day
-    const readingsResult = await query(`
-      SELECT device_id, recorded_at, temperature
-      FROM devices_readings
-      WHERE recorded_at > NOW() - INTERVAL '1 day'
-      ORDER BY device_id, recorded_at
-    `);
+    const readingsResult = await query(getDashboardData);
 
-    // Group readings by device
-    const readingsByDevice = {};
-    readingsResult.rows.forEach(row => {
-      if (!readingsByDevice[row.device_id]) readingsByDevice[row.device_id] = [];
-      readingsByDevice[row.device_id].push({
-        recorded_at: row.recorded_at,
-        temperature: parseFloat(row.temperature)
-      });
+    const rows = readingsResult.rows;
+    const devicesMap = new Map();
+
+    rows.forEach(row => {
+      const deviceId = row.device_id;
+      const bucketTime = row.bucket; // make sure it's a JS Date or ISO string
+      const sensors = row.sensors ? (Array.isArray(row.sensors) ? row.sensors : JSON.parse(row.sensors)) : [];
+
+      if (!devicesMap.has(deviceId)) {
+        devicesMap.set(deviceId, {
+          device_id: deviceId,
+          model: row.model,
+          ip_addr: row.ip_addr,
+          location: row.location,
+          buckets: []
+        });
+      }
+
+      const device = devicesMap.get(deviceId);
+
+      if (bucketTime) {
+        device.buckets.push({
+          time: new Date(bucketTime).toISOString(), // standard ISO string
+          sensors: sensors
+        });
+      }
     });
+    
+    const results = Array.from(devicesMap.values());
 
-    // Fetch aggregated data (1h time buckets)
-    const aggregatesResult = await query(`
-      SELECT 
-        device_id,
-        time_bucket('1 hour', recorded_at) AS bucket,
-        AVG(temperature) AS avg_temperature,
-        MIN(temperature) AS min_temperature,
-        MAX(temperature) AS max_temperature,
-        COUNT(*) AS readings_count
-      FROM devices_readings
-      WHERE recorded_at > NOW() - INTERVAL '1 day'
-      GROUP BY device_id, bucket
-      ORDER BY device_id, bucket
-    `);
-
-    // Group aggregates by device
-    const aggregatesByDevice = {};
-    aggregatesResult.rows.forEach(row => {
-      if (!aggregatesByDevice[row.device_id]) aggregatesByDevice[row.device_id] = [];
-      aggregatesByDevice[row.device_id].push({
-        bucket: row.bucket,
-        avg_temperature: parseFloat(row.avg_temperature),
-        min_temperature: parseFloat(row.min_temperature),
-        max_temperature: parseFloat(row.max_temperature),
-        readings_count: parseInt(row.readings_count, 10)
-      });
-    });
-
-    // Combine both into a single JSON
-    const devices = {};
-    Object.keys(readingsByDevice).forEach(deviceId => {
-      devices[deviceId] = {
-        readings: readingsByDevice[deviceId],
-        aggregates: aggregatesByDevice[deviceId] || []
-      };
-    });
-
-    res.json(devices);
+    res.json(results);
   } catch (err) {
     console.error(err);
     res.status(404).json({ error: "Not found" });
