@@ -1,4 +1,4 @@
-CREATE MATERIALIZED VIEW devices_readings_hourly AS
+CREATE OR REPLACE VIEW devices_readings_hourly AS
 WITH readings_24h AS (
     SELECT
         r.device_id,
