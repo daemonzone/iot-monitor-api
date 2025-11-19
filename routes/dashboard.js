@@ -8,7 +8,7 @@ const router = express.Router();
 // Example: get aggregated metrics
 router.get("/", authenticateToken, async (req, res) => {
   try {
-    
+
     const readingsResult = await query(getDashboardData);
 
     const rows = readingsResult.rows;
@@ -17,7 +17,7 @@ router.get("/", authenticateToken, async (req, res) => {
     rows.forEach(row => {
       const deviceId = row.device_id;
       const bucketTime = row.bucket; // make sure it's a JS Date or ISO string
-      const sensors = row.sensors ? (Array.isArray(row.sensors) ? row.sensors : JSON.parse(row.sensors)) : [];
+      const sensors_readings = row.sensors_readings ? (Array.isArray(row.sensors_readings) ? row.sensors_readings : JSON.parse(row.sensors_readings)) : [];
 
       if (!devicesMap.has(deviceId)) {
         devicesMap.set(deviceId, {
@@ -25,6 +25,7 @@ router.get("/", authenticateToken, async (req, res) => {
           model: row.model,
           ip_addr: row.ip_addr,
           location: row.location,
+          sensors: row.sensors,
           buckets: []
         });
       }
@@ -34,7 +35,7 @@ router.get("/", authenticateToken, async (req, res) => {
       if (bucketTime) {
         device.buckets.push({
           time: new Date(bucketTime).toISOString(), // standard ISO string
-          sensors: sensors
+          sensors: sensors_readings
         });
       }
     });

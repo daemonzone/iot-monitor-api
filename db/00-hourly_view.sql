@@ -26,6 +26,7 @@ SELECT
     d.model,
     d.ip_addr,
     d.location,    
+    d.sensors,
     r.bucket,
     COALESCE(
         jsonb_agg(
@@ -37,9 +38,12 @@ SELECT
             ) ORDER BY r.sensor
         ) FILTER (WHERE r.sensor IS NOT NULL),
         '[]'::jsonb
-    ) AS sensors
+    ) AS sensors_readings
 FROM devices d
 LEFT JOIN agg_per_sensor r ON r.device_id = d.device_id
+CROSS JOIN LATERAL jsonb_array_elements_text(d.sensors) AS ds(code)
+JOIN sensors s ON s.code = ds.code
 WHERE d.last_status_update >= NOW() - INTERVAL '24 hours'
-GROUP BY d.device_id, d.model, d.ip_addr, d.location, r.bucket
-ORDER BY d.model, d.device_id, r.bucket;
+AND s.value_type = 'numeric'
+GROUP BY d.device_id, d.model, d.ip_addr, d.location, d.sensors, r.bucket
+ORDER BY d.location, d.model, d.device_id, r.bucket;
