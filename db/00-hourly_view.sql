@@ -31,9 +31,9 @@ SELECT
         jsonb_agg(
             jsonb_build_object(
                 'sensor', r.sensor,
-                'avg', r.avg_value,
-                'min', r.min_value,
-                'max', r.max_value
+                'avg', ROUND(r.avg_value, 2),
+                'min', ROUND(r.min_value, 2),
+                'max', ROUND(r.max_value, 2)
             ) ORDER BY r.sensor
         ) FILTER (WHERE r.sensor IS NOT NULL),
         '[]'::jsonb
